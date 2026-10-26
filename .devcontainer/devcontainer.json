@@ -1,0 +1,27 @@
+{
+  "name": "Flight AQI Spatial Join Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": ".venv/bin/python",
+        "python.analysis.typeCheckingMode": "basic",
+        "editor.formatOnSave": true,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        }
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "hashicorp.terraform",
+        "eamodio.gitlens"
+      ]
+    }
+  },
+  "postCreateCommand": "uv venv && uv sync",
+  "remoteUser": "root"
+}
