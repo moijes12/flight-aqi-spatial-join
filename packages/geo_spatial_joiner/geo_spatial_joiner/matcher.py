@@ -56,3 +56,24 @@ def find_nearby_sensors(
             nearby_sensors.append(sensor_record)
 
     return nearby_sensors
+
+
+def batch_find_nearby_sensors(
+    flights: list[tuple[str, float, float]],
+    sensors: list[dict[str, Any]],
+    radius_meters: float,
+) -> list[dict[str, Any]]:
+    """Perform batch spatial matching for multiple flights (flight_id, lat, lon) against sensors."""
+    results = []
+    for flight_id, lat, lon in flights:
+        nearby_sensors = find_nearby_sensors((lat, lon), sensors, radius_meters)
+        for sensor in nearby_sensors:
+            results.append(
+                {
+                    "flight_id": flight_id,
+                    "sensor_id": sensor.get("id"),
+                    "distance_meters": sensor["distance_meters"],
+                    "sensor_data": sensor,
+                }
+            )
+    return results

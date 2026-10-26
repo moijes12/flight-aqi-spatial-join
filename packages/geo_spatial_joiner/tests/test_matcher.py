@@ -1,5 +1,9 @@
 import pytest
-from geo_spatial_joiner.matcher import calculate_distance_meters, find_nearby_sensors
+from geo_spatial_joiner.matcher import (
+    batch_find_nearby_sensors,
+    calculate_distance_meters,
+    find_nearby_sensors,
+)
 
 
 def test_calculate_distance_zero():
@@ -34,3 +38,17 @@ def test_find_nearby_sensors():
     assert len(nearby) == 1
     assert nearby[0]["id"] == 1
     assert "distance_meters" in nearby[0]
+
+
+def test_batch_find_nearby_sensors():
+    flights = [
+        ("FL123", 12.9716, 77.5946),
+        ("FL999", 50.0000, 50.0000),  # Far away
+    ]
+    sensors = [
+        {"id": 101, "latitude": 12.9720, "longitude": 77.5950},
+    ]
+    results = batch_find_nearby_sensors(flights, sensors, radius_meters=500.0)
+    assert len(results) == 1
+    assert results[0]["flight_id"] == "FL123"
+    assert results[0]["sensor_id"] == 101
