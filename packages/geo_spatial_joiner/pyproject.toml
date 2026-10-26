@@ -1,0 +1,18 @@
+[project]
+name = "geo-spatial-joiner"
+version = "0.1.0"
+description = "A lightweight geospatial proximity matching library using Shapely and pure math."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "shapely>=2.0.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

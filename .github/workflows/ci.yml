@@ -33,7 +33,7 @@ jobs:
         run: uv run ruff check .
 
       - name: Run typechecker (Mypy)
-        run: uv run mypy src/ # Add packages/ later
+        run: uv run mypy src/ packages/
 
       - name: Run tests
-        run: uv run pytest tests/
+        run: uv run pytest tests/ packages/geo_spatial_joiner/tests/
