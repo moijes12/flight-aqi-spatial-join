@@ -36,4 +36,7 @@ jobs:
         run: uv run mypy src/ packages/
 
       - name: Run tests
-        run: uv run pytest tests/ packages/geo_spatial_joiner/tests/
+        run: uv run pytest tests/
+
+      - name: Run test for geo_spatial joiner
+        run: uv run pytest packages/geo_spatial_joiner/tests/
