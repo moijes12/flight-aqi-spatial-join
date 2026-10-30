@@ -16,7 +16,9 @@ class OpenSkyClient:
         self.timeout = timeout
         self.max_retries = max_retries
 
-    async def fetch_flights(self, client: AsyncClient | None) -> list[FlightTelemetry]:
+    async def fetch_flights(
+        self, client: AsyncClient | None = None
+    ) -> list[FlightTelemetry]:
         """Fetch current flight states asynchronously with retry and rate-limit handling."""
         close_client = False
 
