@@ -30,4 +30,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app"
 
 # CRITICAL: Use the absolute path to the virtualenv python interpreter
-CMD ["/app/.venv/bin/python", "-m", "src.main"]
+CMD ["python", "-m", "src.main"]
