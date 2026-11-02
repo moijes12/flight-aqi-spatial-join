@@ -27,7 +27,10 @@
         "ms-python.vscode-pylance",
         "charliermarsh.ruff",
         "hashicorp.terraform",
-        "eamodio.gitlens"
+        "eamodio.gitlens",
+        "github.vscode-pull-request-github",
+        "github.vscode-github-actions",
+        "esbenp.prettier-vscode"
       ]
     }
   },
