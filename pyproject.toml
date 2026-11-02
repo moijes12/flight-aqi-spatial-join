@@ -15,6 +15,7 @@ dependencies = [
     "pydeck>=0.9.1",
     "loguru>=0.7.3",
     "httpx2[cli]>=2.16.0",
+    "opensky-api",
 ]
 
 [dependency-groups]
@@ -39,3 +40,6 @@ python_version = "3.14"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+
+[tool.uv.sources]
+opensky-api = { git = "https://github.com/openskynetwork/opensky-api.git", subdirectory = "python" }
