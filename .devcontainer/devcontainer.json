@@ -3,6 +3,11 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker": {
+      "moby": false
+    }
+  },
   "customizations": {
     "vscode": {
       "settings": {
