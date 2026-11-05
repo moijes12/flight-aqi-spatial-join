@@ -5,8 +5,6 @@ WORKDIR /app
 
 ENV UV_COMPILE_BYTECODE=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
-
 COPY pyproject.toml uv.lock ./
 COPY packages/geo_spatial_joiner/pyproject.toml /app/packages/geo_spatial_joiner/
 RUN uv sync --frozen --no-dev --no-install-project
