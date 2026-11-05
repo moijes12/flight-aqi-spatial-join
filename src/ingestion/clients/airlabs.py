@@ -5,7 +5,7 @@ import time
 import httpx
 from loguru import logger
 
-from src.ingestion.schemas import FlightTelemetry
+from ingestion.schemas import FlightTelemetry
 
 
 class AirLabsClient:
