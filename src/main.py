@@ -4,8 +4,8 @@ import sys
 
 from loguru import logger
 
+from ingestion.clients.airlabs import AirLabsClient
 from ingestion.clients.openaq_client import OpenAQClient
-from ingestion.clients.opensky_client import OpenSkyClient
 
 logger.remove()
 logger.add(
@@ -21,19 +21,18 @@ async def run_pipeline() -> None:
         logger.error(
             "CRITICAL: OPENAQ_API_KEY environment variable is missing or set to placeholder!"
         )
-
-    sky_client = OpenSkyClient()
+    airlabs_client = AirLabsClient()
     aq_client = OpenAQClient(api_key=openaq_api_key)
 
     async with asyncio.TaskGroup() as tg:
-        sky_task = tg.create_task(sky_client.fetch_flight_data())
+        airlabs_task = tg.create_task(airlabs_client.fetch_flight_data())
         aq_task = tg.create_task(
             aq_client.fetch_pm25_sensors(
                 radius_meters=25000, coordinates=(72.8774, 19.0760)
             )
         )
 
-    flights = sky_task.result()
+    flights = airlabs_task.result()
     sensors = aq_task.result()
 
     logger.info(
