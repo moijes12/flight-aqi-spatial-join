@@ -2,9 +2,7 @@ import pydeck as pdk
 import streamlit as st
 from google.cloud import bigquery
 
-st.set_page_config(
-    page_title="Flight & Air Quality Spatial Analytics", page_layout="wide"
-)
+st.set_page_config(page_title="Flight & Air Quality Spatial Analytics", layout="wide")
 
 st.title("✈️ Flight Telemetry & Air Quality Spatial Join")
 st.markdown(
