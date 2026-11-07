@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -25,7 +25,7 @@ class FlightTelemetry(BaseModel):
         return None
 
     @classmethod
-    def from_opensky_vector(cls, vector: list[Any]) -> FlightTelemetry | None:
+    def from_opensky_vector(cls, vector: list[Any]) -> Optional["FlightTelemetry"]:
         """Parse raw OpenSky state vector list into a validated FlightTelemetry model."""
         if not vector or len(vector) < 17:
             return None
@@ -59,7 +59,7 @@ class AirQualitySensor(BaseModel):
     measured_at: str | None = None
 
     @classmethod
-    def from_openaq_location(cls, location: dict[str, Any]) -> list[AirQualitySensor]:
+    def from_openaq_location(cls, location: dict[str, Any]) -> list["AirQualitySensor"]:
         """Extract PM2.5 sensors from an OpenAQ v3 location dictionary."""
         sensors_extracted = []
         loc_id = location.get("id", None)
