@@ -1,6 +1,7 @@
 import pydeck as pdk
 import streamlit as st
 from google.cloud import bigquery
+from google.oauth2 import service_account
 
 st.set_page_config(page_title="Flight & Air Quality Spatial Analytics", layout="wide")
 
@@ -10,10 +11,26 @@ st.markdown(
 )
 
 
+@st.cache_resource
+def get_bigquery_client():
+    # Production: Load from Streamlit Community Cloud secrets
+    if "gcp_service_account" in st.secrets:
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        credentials = service_account.Credentials.from_service_account_info(creds_dict)
+        return bigquery.Client(
+            credentials=credentials, project=creds_dict["project_id"]
+        )
+    else:
+        # Local development: Fall back to gcloud application-default credentials
+        return bigquery.Client()
+
+
+client = get_bigquery_client()
+
+
 @st.cache_data(ttl=600)
 def load_spatial_data():
     """Query recent joined spatial data from BigQuery."""
-    client = bigquery.Client()
     query = """
         SELECT
             timestamp,
@@ -40,7 +57,8 @@ with st.spinner("Fetching spatial join metrics from BigQuery..."):
 
 if df.empty:
     st.warning(
-        "No spatial join records found in BigQuery for the last 24 hours. Ensure your pipeline is streaming data."
+        "No spatial join records found in BigQuery for the last 24 hours. Ensure"
+        " your pipeline is streaming data."
     )
 else:
     # Sidebar filters
@@ -74,12 +92,16 @@ else:
 
     # Initial view centered around Pune / target airspace
     initial_view_state = pdk.ViewState(
-        latitude=float(filtered_df["flight_lat"].mean())
-        if not filtered_df.empty
-        else 18.5204,
-        longitude=float(filtered_df["flight_lon"].mean())
-        if not filtered_df.empty
-        else 73.8567,
+        latitude=(
+            float(filtered_df["flight_lat"].mean())
+            if not filtered_df.empty
+            else 18.5204
+        ),
+        longitude=(
+            float(filtered_df["flight_lon"].mean())
+            if not filtered_df.empty
+            else 73.8567
+        ),
         zoom=9,
         pitch=30,
     )
@@ -88,7 +110,10 @@ else:
         layers=[flight_layer, sensor_layer],
         initial_view_state=initial_view_state,
         tooltip={
-            "text": "Flight: {callsign} ({icao24})\nSensor: {sensor_id}\nPM2.5: {pm25} µg/m³\nDistance: {distance_meters}m"
+            "text": (
+                "Flight: {callsign} ({icao24})\nSensor:"
+                " {sensor_id}\nPM2.5: {pm25} µg/m³\nDistance: {distance_meters}m"
+            )
         },
     )
 

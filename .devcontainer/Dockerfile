@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/python:3.14-trixie
+FROM mcr.microsoft.com/devcontainers/python:3.12-trixie
 
 # Install additional CLI tools (Terraform, gcloud)
 RUN apt-get update && apt-get install -y --no-install-recommends \
