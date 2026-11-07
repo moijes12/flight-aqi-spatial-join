@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "apache-beam>=2.77.0",
+    "db-dtypes>=1.2.0",
     "google-cloud-bigquery>=3.47.0",
     "google-cloud-pubsub>=2.43.0",
     "httpx>=0.27.0",

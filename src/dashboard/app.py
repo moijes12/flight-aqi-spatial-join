@@ -21,8 +21,8 @@ def get_bigquery_client():
             credentials=credentials, project=creds_dict["project_id"]
         )
     else:
-        # Local development: Fall back to gcloud application-default credentials
-        return bigquery.Client()
+        # Local development / fallback (replace with your actual project ID if needed)
+        return bigquery.Client(project="flight-aqi-spatial-join")
 
 
 client = get_bigquery_client()
