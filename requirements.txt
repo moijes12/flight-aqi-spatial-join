@@ -45,6 +45,8 @@ cryptography==50.0.2
     # via
     #   apache-beam
     #   google-auth
+db-dtypes==1.9.0
+    # via flight-aqi-spatial-join
 distlib==0.4.4
     # via virtualenv
 dnspython==2.9.2
@@ -156,6 +158,7 @@ nodeenv==1.12.0
 numpy==2.4.6
     # via
     #   apache-beam
+    #   db-dtypes
     #   pandas
     #   pydeck
     #   shapely
@@ -176,12 +179,15 @@ packaging==26.3
     # via
     #   altair
     #   apache-beam
+    #   db-dtypes
     #   google-cloud-bigquery
     #   pytest
     #   streamlit
     #   virtualenv
 pandas==3.1.1
-    # via streamlit
+    # via
+    #   db-dtypes
+    #   streamlit
 pathspec==1.1.1
     # via mypy
 pillow==12.3.0
@@ -211,6 +217,7 @@ protobuf==6.33.6
 pyarrow==25.0.1
     # via
     #   apache-beam
+    #   db-dtypes
     #   streamlit
 pyasn1==0.6.5
     # via pyasn1-modules
