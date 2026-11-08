@@ -42,7 +42,7 @@ jobs:
 
       - name: Export requirements for Dataflow workers
         run: |
-          uv export --python 3.12 --format requirements.txt --no-hashes -o requirements.txt
+          uv export --python 3.12 --format requirements.txt --no-hashes --no-emit-project -o requirements.txt
 
       - name: Submit Apache Beam Pipeline to Dataflow
         run: |
