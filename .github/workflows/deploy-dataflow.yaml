@@ -36,6 +36,10 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Upgrade pip
+        run: |
+          uv run python -m ensurepip --upgrade
+
       - name: Export requirements for Dataflow workers
         run: |
           uv export --python 3.12 --format requirements.txt --no-hashes -o requirements.txt
