@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 import httpx2
 from fastapi import FastAPI
-from google import pubsub_v1
+from google.cloud import pubsub_v1
 from loguru import logger
 
 # Configuration from environment variables
@@ -64,7 +64,9 @@ def background_ingestion_loop():
                 "timestamp": time.time(),
             }
             data_bytes = str(payload).encode("utf-8")
-            future = publisher.publish(topic_path, data=data_bytes)
+
+            # Correct publish call
+            future = publisher.publish(topic=topic_path, data=data_bytes)
             logger.info(f"Published batch to Pub/Sub: message_id={future.result()}")
 
         except Exception as e:  # noqa: BLE001
