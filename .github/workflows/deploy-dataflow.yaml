@@ -44,7 +44,7 @@ jobs:
         run: |
           uv export --python 3.12 --format requirements.txt --no-hashes --no-emit-project -o requirements.txt
 
-      - name: Submit Apache Beam Pipeline to Dataflow
+            - name: Submit Apache Beam Pipeline to Dataflow
         run: |
           uv run --python 3.12 python src/pipeline/beam_streaming.py \
             --runner=DataflowRunner \
@@ -52,6 +52,7 @@ jobs:
             --region=us-central1 \
             --streaming \
             --job_name=flight-aqi-streaming-pipeline \
+            --service_account=github-actions-deployer@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
             --temp_location=gs://${{ secrets.GCP_BUCKET_NAME }}/temp/ \
             --staging_location=gs://${{ secrets.GCP_BUCKET_NAME }}/staging/ \
             --requirements_file=requirements.txt
