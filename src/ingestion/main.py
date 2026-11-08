@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 import httpx2
 from fastapi import FastAPI
-from google.cloud import pubsub_v1
+from google import pubsub_v1
 from loguru import logger
 
 # Configuration from environment variables
