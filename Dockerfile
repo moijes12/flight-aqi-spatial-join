@@ -27,4 +27,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app"
 
 # CRITICAL: Use the absolute path to the virtualenv python interpreter
-CMD ["python", "-m", "src.main"]
+CMD ["uv", "run", "uvicorn", "src.ingestion.main:app", "--host", "0.0.0.0", "--port", "8080"]
