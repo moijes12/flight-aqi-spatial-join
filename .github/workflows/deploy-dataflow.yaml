@@ -8,7 +8,7 @@ on:
       - "src/pipeline/**"
       - "pyproject.toml"
       - "uv.lock"
-      - ".github/workflows/deploy-dataflow.yml"
+      - ".github/workflows/deploy-dataflow.yaml"
 
 jobs:
   deploy-beam:
