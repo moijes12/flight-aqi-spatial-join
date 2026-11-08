@@ -1,30 +1,18 @@
-# Stage 1: Build dependencies using uv
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+FROM python:3.12-slim-bookworm
+
+# Copy uv binary from official image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
-
 ENV UV_COMPILE_BYTECODE=1
 
 COPY pyproject.toml uv.lock ./
-COPY packages/geo_spatial_joiner/pyproject.toml /app/packages/geo_spatial_joiner/
 RUN uv sync --frozen --no-dev --no-install-project
 
-COPY . .
+COPY . /app
 RUN uv sync --frozen --no-dev
 
-
-# Stage 2: Lightweight runtime image
-FROM python:3.12-slim-bookworm
-
-WORKDIR /app
-
-# Copy virtual environment and source code from builder stage
-COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /app/src /app/src
-COPY --from=builder /app/packages /app/packages
-
 ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app"
+ENV PORT=8080
 
-# CRITICAL: Use the absolute path to the virtualenv python interpreter
-CMD ["uv", "run", "uvicorn", "src.ingestion.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "src.ingestion.main:app", "--host", "0.0.0.0", "--port", "8080"]
