@@ -5,7 +5,7 @@ description = "Global Real-Time Flight & Air Quality Spatial Join Pipeline on GC
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "apache-beam>=2.77.0",
+    "apache-beam[gcp]>=2.77.0",
     "db-dtypes>=1.2.0",
     "fastapi[standard]>=0.162.2",
     "google-cloud-bigquery>=3.47.0",
