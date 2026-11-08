@@ -1,0 +1,51 @@
+name: Deploy Dataflow Pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/pipeline/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/deploy-dataflow.yml"
+
+jobs:
+  deploy-beam:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Export requirements for Dataflow workers
+        run: |
+          uv export --format requirements.txt --no-hashes -o requirements.txt
+
+      - name: Submit Apache Beam Pipeline to Dataflow
+        run: |
+          uv run python src/pipeline/beam_streaming.py \
+            --runner=DataflowRunner \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --region=us-central1 \
+            --streaming=True \
+            --job_name=flight-aqi-streaming-pipeline \
+            --temp_location=gs://${{ secrets.GCP_BUCKET_NAME }}/temp/ \
+            --staging_location=gs://${{ secrets.GCP_BUCKET_NAME }}/staging/ \
+            --requirements_file=requirements.txt
