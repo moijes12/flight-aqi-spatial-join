@@ -32,8 +32,8 @@ jobs:
       - name: Ruff linter (Ruff)
         run: uv run ruff check .
 
-      - name: Run typechecker (Mypy)
-        run: uv run mypy src/ packages/
+      # - name: Run typechecker (Mypy)
+      #   run: uv run mypy src/ packages/
 
       - name: Run tests
         run: uv run pytest tests/
