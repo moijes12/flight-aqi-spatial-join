@@ -1,3 +1,4 @@
+import json
 import sys
 
 import apache_beam as beam
@@ -30,19 +31,31 @@ class ParseAndFlattenPayload(beam.DoFn):
             if isinstance(element, bytes):
                 element = element.decode("utf-8")
 
-            data = eval(element)
-            flights = data.get("flights", [])
+            # FIXED: Use json.loads instead of eval() to properly parse standard JSON
+            data = json.loads(element)
+
+            # Support both nested payloads and flat test messages
+            flights = data.get("flights")
+            if not flights and ("flight_id" in data or "lat" in data):
+                flights = [data]  # Treat single flat message as a list of 1 flight
+
+            flights = flights or []
             sensors = data.get("sensors", [])
             ingest_time = data.get("timestamp")
 
             for flight in flights:
                 yield {
                     "flight_id": str(
-                        flight.get("hex", flight.get("flight_number", "UNKNOWN"))
+                        flight.get(
+                            "flight_id",
+                            flight.get("hex", flight.get("flight_number", "UNKNOWN")),
+                        )
                     ),
-                    "latitude": flight.get("lat"),
-                    "longitude": flight.get("lng"),
-                    "altitude": flight.get("alt"),
+                    "latitude": flight.get("lat") or flight.get("latitude"),
+                    "longitude": flight.get("lng")
+                    or flight.get("longitude")
+                    or flight.get("lon"),
+                    "altitude": flight.get("alt") or flight.get("altitude"),
                     "speed": flight.get("speed"),
                     "sensor_location_id": sensors[0].get("id") if sensors else None,
                     "pm25": sensors[0].get("parameters", [{}])[0].get("value")
