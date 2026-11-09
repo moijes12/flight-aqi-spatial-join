@@ -1,5 +1,6 @@
 import json
 import sys
+from datetime import UTC, datetime
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
@@ -31,19 +32,53 @@ class ParseAndFlattenPayload(beam.DoFn):
             if isinstance(element, bytes):
                 element = element.decode("utf-8")
 
-            # FIXED: Use json.loads instead of eval() to properly parse standard JSON
             data = json.loads(element)
 
-            # Support both nested payloads and flat test messages
-            flights = data.get("flights")
-            if not flights and ("flight_id" in data or "lat" in data):
-                flights = [data]  # Treat single flat message as a list of 1 flight
+            # Universal fallback extraction for nested or flat payloads
+            flights = data.get("flights") or data.get("response") or data.get("data")
+            if not flights and (
+                isinstance(data, dict)
+                and ("flight_id" in data or "lat" in data or "hex" in data)
+            ):
+                flights = [data]
+            elif not flights and isinstance(data, list):
+                flights = data
 
             flights = flights or []
-            sensors = data.get("sensors", [])
-            ingest_time = data.get("timestamp")
+            sensors = data.get("sensors", data.get("results", []))
+            ingest_time = data.get("timestamp") or data.get("time")
+
+            win_start_str = (
+                datetime.fromtimestamp(window.start.micros / 1e6, tz=UTC).isoformat()
+                + "Z"
+            )
+
+            if not flights:
+                logger.warning(
+                    f"No flights found in payload keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"
+                )
+                return
 
             for flight in flights:
+                if not isinstance(flight, dict):
+                    continue
+
+                sensor_id = None
+                pm25_val = None
+                if sensors and isinstance(sensors, list) and len(sensors) > 0:
+                    first_sensor = sensors[0]
+                    if isinstance(first_sensor, dict):
+                        sensor_id = first_sensor.get("id") or first_sensor.get(
+                            "location_id"
+                        )
+                        params = first_sensor.get(
+                            "parameters", first_sensor.get("measurements", [])
+                        )
+                        if params and isinstance(params, list) and len(params) > 0:
+                            pm25_val = params[0].get("value") or params[0].get(
+                                "parameterValue"
+                            )
+
                 yield {
                     "flight_id": str(
                         flight.get(
@@ -57,15 +92,17 @@ class ParseAndFlattenPayload(beam.DoFn):
                     or flight.get("lon"),
                     "altitude": flight.get("alt") or flight.get("altitude"),
                     "speed": flight.get("speed"),
-                    "sensor_location_id": sensors[0].get("id") if sensors else None,
-                    "pm25": sensors[0].get("parameters", [{}])[0].get("value")
-                    if sensors
+                    "sensor_location_id": int(sensor_id)
+                    if sensor_id is not None
                     else None,
-                    "timestamp": ingest_time,
-                    "window_start": str(window.start),
+                    "pm25": float(pm25_val) if pm25_val is not None else None,
+                    "timestamp": ingest_time or datetime.now(tz=UTC).isoformat() + "Z",
+                    "window_start": win_start_str,
                 }
         except Exception as e:  # noqa: BLE001
-            logger.error(f"Error parsing payload in Beam worker: {e}")
+            logger.error(
+                f"Error parsing payload in Beam worker: {e} | Raw element: {str(element)[:200]}"
+            )
 
 
 def run_pipeline(argv=None):
@@ -81,9 +118,7 @@ def run_pipeline(argv=None):
             | "WindowInto"
             >> beam.WindowInto(
                 window.FixedWindows(300),
-                trigger=trigger.Repeatedly(
-                    trigger.AfterProcessingTime(10)
-                ),  # Flushes every 10 seconds of processing time
+                trigger=trigger.Repeatedly(trigger.AfterProcessingTime(10)),
                 accumulation_mode=trigger.AccumulationMode.DISCARDING,
             )
             | "ParsePayload" >> beam.ParDo(ParseAndFlattenPayload())
