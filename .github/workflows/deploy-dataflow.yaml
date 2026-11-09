@@ -44,7 +44,7 @@ jobs:
         run: |
           uv export --python 3.12 --format requirements.txt --no-hashes --no-emit-project -o requirements.txt
 
-            - name: Submit Apache Beam Pipeline to Dataflow
+      - name: Submit Apache Beam Pipeline to Dataflow
         run: |
           uv run --python 3.12 python src/pipeline/beam_streaming.py \
             --runner=DataflowRunner \
