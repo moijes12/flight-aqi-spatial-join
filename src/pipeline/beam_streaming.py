@@ -3,7 +3,7 @@ import sys
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
-from apache_beam.transforms import window
+from apache_beam.transforms import trigger, window
 from loguru import logger
 
 BQ_TABLE = "flight-aqi-spatial-join:geo_analytics.fct_flight_air_quality"
@@ -78,7 +78,14 @@ def run_pipeline(argv=None):
         (
             p
             | "ReadFromPubSub" >> beam.io.ReadFromPubSub(topic=topic_path)
-            | "WindowInto" >> beam.WindowInto(window.FixedWindows(300))
+            | "WindowInto"
+            >> beam.WindowInto(
+                window.FixedWindows(300),
+                trigger=trigger.Repeatedly(
+                    trigger.AfterProcessingTime(10)
+                ),  # Flushes every 10 seconds of processing time
+                accumulation_mode=trigger.AccumulationMode.DISCARDING,
+            )
             | "ParsePayload" >> beam.ParDo(ParseAndFlattenPayload())
             | "WriteToBigQuery"
             >> beam.io.WriteToBigQuery(
