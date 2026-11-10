@@ -46,7 +46,7 @@ jobs:
 
       - name: Cancel Existing Running Dataflow Jobs
         env:
-          JOB_NAME: "flight-streaming-pipeline"
+          JOB_NAME: "flight-aqi-streaming-pipeline"
           REGION: "us-central1"
         run: |
           echo "Checking for active Dataflow jobs matching '$JOB_NAME' in $REGION..."
