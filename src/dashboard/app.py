@@ -1,3 +1,4 @@
+import pandas as pd
 import pydeck as pdk
 import streamlit as st
 from google.cloud import bigquery
@@ -21,29 +22,29 @@ def get_bigquery_client():
             credentials=credentials, project=creds_dict["project_id"]
         )
     else:
-        # Local development / fallback (replace with your actual project ID if needed)
+        # Local development / fallback
         return bigquery.Client(project="flight-aqi-spatial-join")
 
 
 client = get_bigquery_client()
 
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=60)
 def load_spatial_data():
-    """Query recent joined spatial data from BigQuery."""
+    """Query recent joined spatial data from the BigQuery spatial view."""
     query = """
         SELECT
             timestamp,
             icao24,
             callsign,
-            ST_Y(flight_location) as flight_lat,
-            ST_X(flight_location) as flight_lon,
+            flight_lat,
+            flight_lon,
             sensor_id,
-            ST_Y(sensor_location) as sensor_lat,
-            ST_X(sensor_location) as sensor_lon,
+            sensor_lat,
+            sensor_lon,
             pm25,
             distance_meters
-        FROM `geo_analytics.fct_flight_air_quality`
+        FROM `flight-aqi-spatial-join.geo_analytics.v_flight_air_quality_spatial`
         WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
         ORDER BY timestamp DESC
         LIMIT 1000
@@ -52,24 +53,46 @@ def load_spatial_data():
 
 
 # Load data
-with st.spinner("Fetching spatial join metrics from BigQuery..."):
+with st.spinner("Fetching spatial join metrics from BigQuery view..."):
     df = load_spatial_data()
 
 if df.empty:
     st.warning(
-        "No spatial join records found in BigQuery for the last 24 hours. Ensure"
-        " your pipeline is streaming data."
+        "No spatial join records found in BigQuery for the last 24 hours. Ensure "
+        "your Beam streaming pipeline is active and pushing records."
     )
 else:
     # Sidebar filters
     st.sidebar.header("Filter Controls")
+
+    min_dist = int(df["distance_meters"].min()) if not df.empty else 0
+    max_dist = int(df["distance_meters"].max()) if not df.empty else 50000
+    if max_dist <= min_dist:
+        max_dist = min_dist + 10000
+
     max_distance = st.sidebar.slider(
-        "Max Distance Threshold (meters)", 1000, 20000, 10000, step=500
+        "Max Distance Threshold (meters)",
+        min_value=0,
+        max_value=max(20000, max_dist),
+        value=min(15000, max_dist),
+        step=500,
     )
 
     filtered_df = df[df["distance_meters"] <= max_distance]
 
-    st.metric(label="Matched Intersections (24h)", value=len(filtered_df))
+    # Metrics Row
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric(label="Matched Intersections (24h)", value=len(filtered_df))
+    with col2:
+        avg_pm25 = filtered_df["pm25"].mean() if not filtered_df.empty else 0
+        st.metric(
+            label="Avg PM2.5 (µg/m³)",
+            value=f"{avg_pm25:.1f}" if pd.notnull(avg_pm25) else "N/A",
+        )
+    with col3:
+        avg_dist = filtered_df["distance_meters"].mean() if not filtered_df.empty else 0
+        st.metric(label="Avg Proximity Distance", value=f"{avg_dist:.0f} m")
 
     # PyDeck Map Layer
     flight_layer = pdk.Layer(
@@ -90,7 +113,7 @@ else:
         pickable=True,
     )
 
-    # Initial view centered around Pune / target airspace
+    # Initial view centered around Pune airspace
     initial_view_state = pdk.ViewState(
         latitude=(
             float(filtered_df["flight_lat"].mean())
@@ -111,10 +134,12 @@ else:
         initial_view_state=initial_view_state,
         tooltip={
             "text": (
-                "Flight: {callsign} ({icao24})\nSensor:"
-                " {sensor_id}\nPM2.5: {pm25} µg/m³\nDistance: {distance_meters}m"
+                "Flight: {callsign} ({icao24})\n"
+                "Sensor: {sensor_id}\n"
+                "PM2.5: {pm25} µg/m³\n"
+                "Distance: {distance_meters:.1f}m"
             )
-        },
+        },  # type: ignore
     )
 
     st.pydeck_chart(r)
