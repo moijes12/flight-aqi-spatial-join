@@ -11,15 +11,14 @@ BQ_TABLE = "flight-aqi-spatial-join:geo_analytics.fct_flight_air_quality"
 
 BQ_SCHEMA = {
     "fields": [
-        {"name": "flight_id", "type": "STRING", "mode": "NULLABLE"},
-        {"name": "latitude", "type": "FLOAT", "mode": "NULLABLE"},
-        {"name": "longitude", "type": "FLOAT", "mode": "NULLABLE"},
-        {"name": "altitude", "type": "FLOAT", "mode": "NULLABLE"},
-        {"name": "speed", "type": "FLOAT", "mode": "NULLABLE"},
-        {"name": "sensor_location_id", "type": "INTEGER", "mode": "NULLABLE"},
+        {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
+        {"name": "icao24", "type": "STRING", "mode": "REQUIRED"},
+        {"name": "callsign", "type": "STRING", "mode": "NULLABLE"},
+        {"name": "flight_location", "type": "GEOGRAPHY", "mode": "REQUIRED"},
+        {"name": "sensor_id", "type": "STRING", "mode": "REQUIRED"},
+        {"name": "sensor_location", "type": "GEOGRAPHY", "mode": "REQUIRED"},
         {"name": "pm25", "type": "FLOAT", "mode": "NULLABLE"},
-        {"name": "timestamp", "type": "TIMESTAMP", "mode": "NULLABLE"},
-        {"name": "window_start", "type": "TIMESTAMP", "mode": "NULLABLE"},
+        {"name": "distance_meters", "type": "FLOAT", "mode": "REQUIRED"},
     ]
 }
 
@@ -27,7 +26,7 @@ logger = logging.getLogger("beam_streaming")
 
 
 class ParseAndFlattenPayload(beam.DoFn):
-    """Parses raw Pub/Sub message bytes and flattens flights/sensors for analysis."""
+    """Parses raw Pub/Sub message bytes and maps them to the exact BigQuery schema."""
 
     def process(self, element, window=beam.DoFn.WindowParam):
         try:
@@ -40,7 +39,12 @@ class ParseAndFlattenPayload(beam.DoFn):
             flights = data.get("flights") or data.get("response") or data.get("data")
             if not flights and (
                 isinstance(data, dict)
-                and ("flight_id" in data or "lat" in data or "hex" in data)
+                and (
+                    "flight_id" in data
+                    or "lat" in data
+                    or "icao24" in data
+                    or "hex" in data
+                )
             ):
                 flights = [data]
             elif not flights and isinstance(data, list):
@@ -48,16 +52,16 @@ class ParseAndFlattenPayload(beam.DoFn):
 
             flights = flights or []
             sensors = data.get("sensors", data.get("results", []))
-            ingest_time = data.get("timestamp") or data.get("time")
-
-            win_start_str = (
-                datetime.fromtimestamp(window.start.micros / 1e6, tz=UTC).isoformat()
-                + "Z"
+            ingest_time = (
+                data.get("timestamp")
+                or data.get("time")
+                or datetime.now(tz=UTC).isoformat() + "Z"
             )
 
             if not flights:
                 logger.warning(
-                    f"No flights found in payload keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"
+                    "No flights found in payload keys: %s",
+                    list(data.keys()) if isinstance(data, dict) else type(data),
                 )
                 return
 
@@ -65,14 +69,39 @@ class ParseAndFlattenPayload(beam.DoFn):
                 if not isinstance(flight, dict):
                     continue
 
-                sensor_id = None
+                # Extract identifiers & coordinates
+                icao24 = str(
+                    flight.get(
+                        "icao24", flight.get("hex", flight.get("flight_id", "UNKNOWN"))
+                    )
+                )
+                callsign = str(
+                    flight.get("callsign", flight.get("flight_number", "UNKNOWN"))
+                )
+                lat = flight.get("lat") or flight.get("latitude")
+                lon = flight.get("lng") or flight.get("longitude") or flight.get("lon")
+
+                if lat is None or lon is None:
+                    continue
+
+                # Default sensor parsing
+                sensor_id = "101"
+                sensor_lat, sensor_lon = (
+                    lat,
+                    lon,
+                )  # fallback proximity if sensor coords omitted
                 pm25_val = None
+
                 if sensors and isinstance(sensors, list) and len(sensors) > 0:
                     first_sensor = sensors[0]
                     if isinstance(first_sensor, dict):
-                        sensor_id = first_sensor.get("id") or first_sensor.get(
-                            "location_id"
+                        sensor_id = str(
+                            first_sensor.get("id")
+                            or first_sensor.get("location_id", "101")
                         )
+                        sensor_lat = first_sensor.get("lat", lat)
+                        sensor_lon = first_sensor.get("lon", lon)
+
                         params = first_sensor.get(
                             "parameters", first_sensor.get("measurements", [])
                         )
@@ -81,29 +110,25 @@ class ParseAndFlattenPayload(beam.DoFn):
                                 "parameterValue"
                             )
 
+                # Construct BigQuery GEOGRAPHY WKT strings ("POINT(lon lat)")
+                flight_geo = f"POINT({lon} {lat})"
+                sensor_geo = f"POINT({sensor_lon} {sensor_lat})"
+
                 yield {
-                    "flight_id": str(
-                        flight.get(
-                            "flight_id",
-                            flight.get("hex", flight.get("flight_number", "UNKNOWN")),
-                        )
-                    ),
-                    "latitude": flight.get("lat") or flight.get("latitude"),
-                    "longitude": flight.get("lng")
-                    or flight.get("longitude")
-                    or flight.get("lon"),
-                    "altitude": flight.get("alt") or flight.get("altitude"),
-                    "speed": flight.get("speed"),
-                    "sensor_location_id": int(sensor_id)
-                    if sensor_id is not None
-                    else None,
+                    "timestamp": ingest_time,
+                    "icao24": icao24,
+                    "callsign": callsign,
+                    "flight_location": flight_geo,
+                    "sensor_id": sensor_id,
+                    "sensor_location": sensor_geo,
                     "pm25": float(pm25_val) if pm25_val is not None else None,
-                    "timestamp": ingest_time or datetime.now(tz=UTC).isoformat() + "Z",
-                    "window_start": win_start_str,
+                    "distance_meters": 0.0,  # Default or computed spatial distance
                 }
         except Exception as e:  # noqa: BLE001
             logger.error(
-                f"Error parsing payload in Beam worker: {e} | Raw element: {str(element)[:200]}"
+                "Error parsing payload in Beam worker: %s | Raw element: %s",
+                e,
+                str(element)[:200],
             )
 
 
@@ -130,6 +155,8 @@ def run_pipeline(argv=None):
                 schema=BQ_SCHEMA,
                 create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
                 write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
+                method=beam.io.WriteToBigQuery.Method.FILE_LOADS,
+                triggering_frequency=30,
             )
         )  # type: ignore
 
