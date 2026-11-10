@@ -1,11 +1,13 @@
 import argparse
+import logging
 import sys
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.transforms.window import FixedWindows
-from loguru import logger
 from shapely.geometry import Point
+
+logger = logging.getLogger("stream_processor")
 
 
 class SpatialJoinDoFn(beam.DoFn):
@@ -105,10 +107,6 @@ def run(argv=None):
 
 
 if __name__ == "__main__":
-    logger.remove()
-    logger.add(
-        sys.stdout,
-        level="DEBUG",
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
-    )
+    logger = logging.getLogger("beam_streaming")
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     run()

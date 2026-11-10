@@ -1,11 +1,11 @@
 import json
+import logging
 import sys
 from datetime import UTC, datetime
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 from apache_beam.transforms import trigger, window
-from loguru import logger
 
 BQ_TABLE = "flight-aqi-spatial-join:geo_analytics.fct_flight_air_quality"
 
@@ -22,6 +22,8 @@ BQ_SCHEMA = {
         {"name": "window_start", "type": "TIMESTAMP", "mode": "NULLABLE"},
     ]
 }
+
+logger = logging.getLogger("beam_streaming")
 
 
 class ParseAndFlattenPayload(beam.DoFn):
@@ -133,10 +135,5 @@ def run_pipeline(argv=None):
 
 
 if __name__ == "__main__":
-    logger.remove()
-    logger.add(
-        sys.stdout,
-        level="DEBUG",
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
-    )
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     run_pipeline()
