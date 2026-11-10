@@ -44,6 +44,31 @@ jobs:
         run: |
           uv export --python 3.12 --format requirements.txt --no-hashes --no-emit-project -o requirements.txt
 
+      - name: Cancel Existing Running Dataflow Jobs
+        env:
+          JOB_NAME: "flight-streaming-pipeline"
+          REGION: "us-central1"
+        run: |
+          echo "Checking for active Dataflow jobs matching '$JOB_NAME' in $REGION..."
+
+          # Fetch IDs of active jobs matching the name
+          RUNNING_JOBS=$(gcloud dataflow jobs list \
+            --region=$REGION \
+            --status=active \
+            --filter="name:$JOB_NAME" \
+            --format="value(jobId)")
+
+          if [ -n "$RUNNING_JOBS" ]; then
+            for JOB_ID in $RUNNING_JOBS; do
+              echo "Cancelling active Dataflow job ID: $JOB_ID"
+              gcloud dataflow jobs cancel "$JOB_ID" --region=$REGION --quiet
+            done
+            echo "Waiting 15 seconds for cancellation cleanup..."
+            sleep 15
+          else
+            echo "No active jobs found matching '$JOB_NAME'."
+          fi
+
       - name: Submit Apache Beam Pipeline to Dataflow
         run: |
           uv run --python 3.12 python src/pipeline/beam_streaming.py \
