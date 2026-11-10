@@ -3,6 +3,10 @@ import pydeck as pdk
 import streamlit as st
 from google.cloud import bigquery
 from google.oauth2 import service_account
+from streamlit_autorefresh import st_autorefresh
+
+# Automatically refresh the Streamlit app every 30 seconds
+count = st_autorefresh(interval=30000, key="datarefreshcounter")
 
 st.set_page_config(page_title="Flight & Air Quality Spatial Analytics", layout="wide")
 
@@ -31,7 +35,7 @@ client = get_bigquery_client()
 
 @st.cache_data(ttl=60)
 def load_spatial_data():
-    """Query recent joined spatial data from the BigQuery spatial view."""
+    """Query recent joined spatial data from the fully qualified BigQuery spatial view."""
     query = """
         SELECT
             timestamp,
@@ -49,7 +53,11 @@ def load_spatial_data():
         ORDER BY timestamp DESC
         LIMIT 1000
     """
-    return client.query(query).to_dataframe()
+    try:
+        return client.query(query).to_dataframe()
+    except Exception as e:  # noqa: BLE001
+        st.error(f"BigQuery Query Error: {e}")
+        return pd.DataFrame()
 
 
 # Load data
