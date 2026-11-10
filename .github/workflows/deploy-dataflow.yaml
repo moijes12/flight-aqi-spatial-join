@@ -55,8 +55,8 @@ jobs:
           RUNNING_JOBS=$(gcloud dataflow jobs list \
             --region=$REGION \
             --status=active \
-            --filter="name:$JOB_NAME" \
-            --format="value(jobId)")
+            --filter="name=$JOB_NAME" \
+            --format="value(JOB_ID)")
 
           if [ -n "$RUNNING_JOBS" ]; then
             for JOB_ID in $RUNNING_JOBS; do
