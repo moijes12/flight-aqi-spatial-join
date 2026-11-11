@@ -153,10 +153,9 @@ def run_pipeline(argv=None):
             >> beam.io.WriteToBigQuery(
                 table=BQ_TABLE,
                 schema=BQ_SCHEMA,
+                method=beam.io.WriteToBigQuery.Method.STREAMING_INSERTS,
                 create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
                 write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
-                method=beam.io.WriteToBigQuery.Method.FILE_LOADS,
-                triggering_frequency=30,
             )
         )  # type: ignore
 
