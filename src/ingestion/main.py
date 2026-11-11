@@ -25,8 +25,12 @@ def fetch_airlabs_data():
         with httpx2.Client() as client:
             response = client.get(url)
             if response.status_code == 200:
-                return response.json().get("response", [])
-            logger.error(f"AirLabs API error: {response.status_code} - {response.text}")
+                data = response.json().get("response", [])
+                logger.info(
+                    f"Call to AirLabs API returned data for {len(data)} flights"
+                )
+                return data
+            logger.info(f"AirLabs API error: {response.status_code} - {response.text}")
     except Exception as e:  # noqa: BLE001
         logger.error(f"Exception fetching AirLabs data: {e}")
     return []
@@ -40,7 +44,9 @@ def fetch_openaq_data():
         with httpx2.Client() as client:
             response = client.get(url, headers=headers)
             if response.status_code == 200:
-                return response.json().get("results", [])
+                data = response.json().get("results", [])
+                logger.info(f"Call to OpenAQ API returned data for {len(data)} records")
+                return data
             logger.error(f"OpenAQ API error: {response.status_code} - {response.text}")
     except Exception as e:  # noqa: BLE001
         logger.error(f"Exception fetching OpenAQ data: {e}")
@@ -72,7 +78,10 @@ def background_ingestion_loop():
         except Exception as e:  # noqa: BLE001
             logger.error(f"Error during ingestion poll cycle: {e}")
 
-        time.sleep(60)
+        # Sleep for 1 hour. We don't want more than 1 ingestion cycle every hour
+        # We're running on a free plan of AirLabs which allows only 1000 queries a month
+        time.sleep(600 * 6)
+        break
 
 
 @asynccontextmanager
