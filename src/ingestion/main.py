@@ -62,11 +62,11 @@ def background_ingestion_loop():
         try:
             logger.info("Polling AirLabs and OpenAQ APIs...")
             flights = fetch_airlabs_data()
-            sensors = fetch_openaq_data()
+            aqi = fetch_openaq_data()
 
             payload = {
                 "flights": flights,
-                "sensors": sensors,
+                "aqi": aqi,
                 "timestamp": time.time(),
             }
             data_bytes = str(payload).encode("utf-8")
