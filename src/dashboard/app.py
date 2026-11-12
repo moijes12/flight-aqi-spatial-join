@@ -8,11 +8,15 @@ from streamlit_autorefresh import st_autorefresh
 # Automatically refresh the Streamlit app every 30 seconds
 count = st_autorefresh(interval=30000, key="datarefreshcounter")
 
-st.set_page_config(page_title="Flight & Air Quality Spatial Analytics", layout="wide")
+st.set_page_config(
+    page_title="Flight & Air Quality Spatial Analytics",
+    layout="wide",
+    page_icon="✈️",
+)
 
-st.title("✈️ Flight Telemetry & Air Quality Spatial Join")
+st.title("✈️ Flight Telemetry & Air Quality Spatial Analytics")
 st.markdown(
-    "Real-time correlation of aircraft proximity and atmospheric $PM_{2.5}$ readings."
+    "Real-time spatial correlation and proximity monitoring between aircraft telemetry and atmospheric $PM_{2.5}$ readings."
 )
 
 
@@ -35,7 +39,7 @@ client = get_bigquery_client()
 
 @st.cache_data(ttl=60)
 def load_spatial_data():
-    """Query recent joined spatial data from the fully qualified BigQuery spatial view."""
+    """Query recent joined spatial data from the BigQuery spatial view."""
     query = """
         SELECT
             timestamp,
@@ -48,7 +52,7 @@ def load_spatial_data():
             sensor_lon,
             pm25,
             distance_meters
-        FROM `flight-aqi-spatial-join.geo_analytics.v_flight_air_quality_spatial`
+        FROM `flight-aqi-spatial-join.geo_analytics.v_flight_aqi_spatial_join_v2`
         WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
         ORDER BY timestamp DESC
         LIMIT 1000
@@ -66,8 +70,8 @@ with st.spinner("Fetching spatial join metrics from BigQuery view..."):
 
 if df.empty:
     st.warning(
-        "No spatial join records found in BigQuery for the last 24 hours. Ensure "
-        "your Beam streaming pipeline is active and pushing records."
+        "No spatial join records found in BigQuery for the last 24 hours. Ensure"
+        " your streaming pipeline is active and pushing records."
     )
 else:
     # Sidebar filters
@@ -88,40 +92,58 @@ else:
 
     filtered_df = df[df["distance_meters"] <= max_distance]
 
-    # Metrics Row
-    col1, col2, col3 = st.columns(3)
+    # Metrics Row (4 columns)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric(label="Matched Intersections (24h)", value=len(filtered_df))
+        st.metric(label="Matched Intersections", value=len(filtered_df))
     with col2:
         avg_pm25 = filtered_df["pm25"].mean() if not filtered_df.empty else 0
         st.metric(
-            label="Avg PM2.5 (µg/m³)",
-            value=f"{avg_pm25:.1f}" if pd.notnull(avg_pm25) else "N/A",
+            label="Avg PM2.5",
+            value=f"{avg_pm25:.1f} µg/m³" if pd.notnull(avg_pm25) else "N/A",
         )
     with col3:
         avg_dist = filtered_df["distance_meters"].mean() if not filtered_df.empty else 0
         st.metric(label="Avg Proximity Distance", value=f"{avg_dist:.0f} m")
+    with col4:
+        unique_flights = filtered_df["icao24"].nunique() if not filtered_df.empty else 0
+        st.metric(label="Unique Flights Tracked", value=unique_flights)
 
-    # PyDeck Map Layer
+    st.markdown("---")
+
+    # PyDeck Map Layers
+    # 1. Spatial Join Line Layer (connects flight to sensor)
+    line_layer = pdk.Layer(
+        "LineLayer",
+        data=filtered_df,
+        get_source_position=["flight_lon", "flight_lat"],
+        get_target_position=["sensor_lon", "sensor_lat"],
+        get_color=[100, 150, 250, 110],
+        get_width=2,
+        pickable=True,
+    )
+
+    # 2. Flight Scatterplot Layer
     flight_layer = pdk.Layer(
         "ScatterplotLayer",
         data=filtered_df,
         get_position=["flight_lon", "flight_lat"],
-        get_color=[255, 75, 75, 160],
+        get_color=[255, 75, 75, 180],
         get_radius=3000,
         pickable=True,
     )
 
+    # 3. AQI Sensor Scatterplot Layer
     sensor_layer = pdk.Layer(
         "ScatterplotLayer",
         data=filtered_df,
         get_position=["sensor_lon", "sensor_lat"],
-        get_color=[0, 150, 255, 200],
-        get_radius=5000,
+        get_color=[0, 180, 130, 200],
+        get_radius=4000,
         pickable=True,
     )
 
-    # Initial view centered around Pune airspace
+    # Initial view centered around Pune airspace / dataset mean
     initial_view_state = pdk.ViewState(
         latitude=(
             float(filtered_df["flight_lat"].mean())
@@ -138,7 +160,7 @@ else:
     )
 
     r = pdk.Deck(
-        layers=[flight_layer, sensor_layer],
+        layers=[line_layer, flight_layer, sensor_layer],
         initial_view_state=initial_view_state,
         tooltip={
             "text": (
@@ -150,8 +172,20 @@ else:
         },  # type: ignore
     )
 
-    st.pydeck_chart(r)
+    st.pydeck_chart(r, use_container_width=True)
 
-    # Data Table Preview
-    with st.expander("View Raw Spatial Records"):
-        st.dataframe(filtered_df)
+    # Data Table Preview & Export Tabs
+    st.markdown("### Spatial Join Records")
+    tab1, tab2 = st.tabs(["Interactive Table", "Export Data"])
+
+    with tab1:
+        st.dataframe(filtered_df, use_container_width=True)
+
+    with tab2:
+        csv_data = filtered_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="Download Filtered Data as CSV",
+            data=csv_data,
+            file_name="flight_aqi_spatial_join_export.csv",
+            mime="text/csv",
+        )
