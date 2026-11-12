@@ -69,16 +69,16 @@ jobs:
             echo "No active jobs found matching '$JOB_NAME'."
           fi
 
-      - name: Submit Apache Beam Pipeline to Dataflow
-        run: |
-          uv run --python 3.12 python src/pipeline/beam_streaming.py \
-            --runner=DataflowRunner \
-            --project=${{ secrets.GCP_PROJECT_ID }} \
-            --region=us-central1 \
-            --streaming \
-            --job_name=flight-aqi-streaming-pipeline \
-            --service_account_email=github-actions-deployer@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
-            --temp_location=gs://${{ secrets.GCP_BUCKET_NAME }}/temp/ \
-            --staging_location=gs://${{ secrets.GCP_BUCKET_NAME }}/staging/ \
-            --requirements_file=requirements.txt
-            --no_wait
+      # - name: Submit Apache Beam Pipeline to Dataflow
+      #   run: |
+      #     uv run --python 3.12 python src/pipeline/beam_streaming.py \
+      #       --runner=DataflowRunner \
+      #       --project=${{ secrets.GCP_PROJECT_ID }} \
+      #       --region=us-central1 \
+      #       --streaming \
+      #       --job_name=flight-aqi-streaming-pipeline \
+      #       --service_account_email=github-actions-deployer@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+      #       --temp_location=gs://${{ secrets.GCP_BUCKET_NAME }}/temp/ \
+      #       --staging_location=gs://${{ secrets.GCP_BUCKET_NAME }}/staging/ \
+      #       --requirements_file=requirements.txt
+      #       --no_wait
