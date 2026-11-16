@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import pydeck as pdk
 import streamlit as st
@@ -5,187 +7,168 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 from streamlit_autorefresh import st_autorefresh
 
-# Automatically refresh the Streamlit app every 30 seconds
-count = st_autorefresh(interval=30000, key="datarefreshcounter")
+PROJECT_ID = os.getenv("PROJECT_ID", "flight-aqi-spatial-join")
+VIEW_ID = f"{PROJECT_ID}.geo_analytics.v_flight_aqi_spatial_join"
 
 st.set_page_config(
     page_title="Flight & Air Quality Spatial Analytics",
     layout="wide",
     page_icon="✈️",
 )
+st_autorefresh(interval=60_000, key="datarefreshcounter")
 
-st.title("✈️ Flight Telemetry & Air Quality Spatial Analytics")
-st.markdown(
-    "Real-time spatial correlation and proximity monitoring between aircraft telemetry and atmospheric $PM_{2.5}$ readings."
-)
+st.title("Flight telemetry and air quality")
+st.markdown("Hourly spatial matches between AirLabs flights and OpenAQ PM2.5 sensors.")
+
+
+def _service_account_info() -> dict | None:
+    try:
+        if "gcp_service_account" in st.secrets:
+            return dict(st.secrets["gcp_service_account"])
+    except Exception:
+        return None
+    return None
 
 
 @st.cache_resource
-def get_bigquery_client():
-    # Production: Load from Streamlit Community Cloud secrets
-    if "gcp_service_account" in st.secrets:
-        creds_dict = dict(st.secrets["gcp_service_account"])
+def get_bigquery_client() -> bigquery.Client:
+    creds_dict = _service_account_info()
+    if creds_dict:
         credentials = service_account.Credentials.from_service_account_info(creds_dict)
         return bigquery.Client(
-            credentials=credentials, project=creds_dict["project_id"]
+            credentials=credentials,
+            project=creds_dict.get("project_id", PROJECT_ID),
         )
-    else:
-        # Local development / fallback
-        return bigquery.Client(project="flight-aqi-spatial-join")
-
-
-client = get_bigquery_client()
+    return bigquery.Client(project=PROJECT_ID)
 
 
 @st.cache_data(ttl=60)
-def load_spatial_data():
-    """Query recent joined spatial data from the BigQuery spatial view."""
-    query = """
+def load_spatial_data() -> pd.DataFrame:
+    """Query recent joined spatial data from the BigQuery view."""
+    # Column names match the live view. It exposes flight_number and flight_lng,
+    # not callsign or flight_lon. Station coordinates are not in the view.
+    query = f"""
         SELECT
             timestamp,
             icao24,
-            callsign,
+            flight_number,
             flight_lat,
-            flight_lon,
-            sensor_id,
-            sensor_lat,
-            sensor_lon,
+            flight_lng,
+            station_id,
+            station_name,
+            station_lat,
+            station_lng,
             pm25,
-            distance_meters
-        FROM `flight-aqi-spatial-join.geo_analytics.v_flight_aqi_spatial_join_v2`
-        WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
+            distance_to_station_meters
+        FROM `{VIEW_ID}`
+        WHERE timestamp IS NULL
+           OR timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
         ORDER BY timestamp DESC
         LIMIT 1000
     """
-    try:
-        return client.query(query).to_dataframe()
-    except Exception as e:  # noqa: BLE001
-        st.error(f"BigQuery Query Error: {e}")
-        return pd.DataFrame()
+    return get_bigquery_client().query(query).to_dataframe()
 
 
-# Load data
-with st.spinner("Fetching spatial join metrics from BigQuery view..."):
+try:
     df = load_spatial_data()
+    query_error = None
+except Exception as exc:  # noqa: BLE001
+    df = pd.DataFrame()
+    query_error = str(exc)
 
-if df.empty:
-    st.warning(
-        "No spatial join records found in BigQuery for the last 24 hours. Ensure"
-        " your streaming pipeline is active and pushing records."
-    )
+if query_error:
+    st.error(f"BigQuery query error: {query_error}")
+elif df.empty:
+    st.warning("No spatial join records found in BigQuery for the last 7 days.")
 else:
-    # Sidebar filters
-    st.sidebar.header("Filter Controls")
-
-    min_dist = int(df["distance_meters"].min()) if not df.empty else 0
-    max_dist = int(df["distance_meters"].max()) if not df.empty else 50000
+    st.sidebar.header("Filter controls")
+    min_dist = int(df["distance_to_station_meters"].min())
+    max_dist = int(df["distance_to_station_meters"].max())
     if max_dist <= min_dist:
-        max_dist = min_dist + 10000
+        max_dist = min_dist + 1000
 
     max_distance = st.sidebar.slider(
-        "Max Distance Threshold (meters)",
+        "Max distance (meters)",
         min_value=0,
-        max_value=max(20000, max_dist),
-        value=min(15000, max_dist),
+        max_value=max(50_000, max_dist),
+        value=min(50_000, max_dist),
         step=500,
     )
+    filtered_df = df[df["distance_to_station_meters"] <= max_distance]
 
-    filtered_df = df[df["distance_meters"] <= max_distance]
-
-    # Metrics Row (4 columns)
     col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric(label="Matched Intersections", value=len(filtered_df))
-    with col2:
-        avg_pm25 = filtered_df["pm25"].mean() if not filtered_df.empty else 0
-        st.metric(
-            label="Avg PM2.5",
-            value=f"{avg_pm25:.1f} µg/m³" if pd.notnull(avg_pm25) else "N/A",
-        )
-    with col3:
-        avg_dist = filtered_df["distance_meters"].mean() if not filtered_df.empty else 0
-        st.metric(label="Avg Proximity Distance", value=f"{avg_dist:.0f} m")
-    with col4:
-        unique_flights = filtered_df["icao24"].nunique() if not filtered_df.empty else 0
-        st.metric(label="Unique Flights Tracked", value=unique_flights)
+    col1.metric("Matched intersections", len(filtered_df))
+    avg_pm25 = filtered_df["pm25"].mean() if not filtered_df.empty else None
+    col2.metric(
+        "Avg PM2.5",
+        f"{avg_pm25:.1f} µg/m³" if pd.notnull(avg_pm25) else "N/A",
+    )
+    avg_dist = (
+        filtered_df["distance_to_station_meters"].mean() if not filtered_df.empty else 0
+    )
+    col3.metric("Avg proximity", f"{avg_dist:.0f} m")
+    col4.metric(
+        "Unique flights",
+        int(filtered_df["icao24"].nunique()) if not filtered_df.empty else 0,
+    )
 
-    st.markdown("---")
-
-    # PyDeck Map Layers
-    # 1. Spatial Join Line Layer (connects flight to sensor)
     line_layer = pdk.Layer(
         "LineLayer",
         data=filtered_df,
-        get_source_position=["flight_lon", "flight_lat"],
-        get_target_position=["sensor_lon", "sensor_lat"],
+        get_source_position=["flight_lng", "flight_lat"],
+        get_target_position=["station_lng", "station_lat"],
         get_color=[100, 150, 250, 110],
         get_width=2,
         pickable=True,
     )
-
-    # 2. Flight Scatterplot Layer
     flight_layer = pdk.Layer(
         "ScatterplotLayer",
         data=filtered_df,
-        get_position=["flight_lon", "flight_lat"],
+        get_position=["flight_lng", "flight_lat"],
         get_color=[255, 75, 75, 180],
         get_radius=3000,
         pickable=True,
     )
-
-    # 3. AQI Sensor Scatterplot Layer
-    sensor_layer = pdk.Layer(
+    station_layer = pdk.Layer(
         "ScatterplotLayer",
         data=filtered_df,
-        get_position=["sensor_lon", "sensor_lat"],
+        get_position=["station_lng", "station_lat"],
         get_color=[0, 180, 130, 200],
         get_radius=4000,
         pickable=True,
     )
-
-    # Initial view centered around Pune airspace / dataset mean
-    initial_view_state = pdk.ViewState(
-        latitude=(
-            float(filtered_df["flight_lat"].mean())
-            if not filtered_df.empty
-            else 18.5204
-        ),
-        longitude=(
-            float(filtered_df["flight_lon"].mean())
-            if not filtered_df.empty
-            else 73.8567
-        ),
-        zoom=9,
+    view_state = pdk.ViewState(
+        latitude=float(filtered_df["flight_lat"].mean())
+        if not filtered_df.empty
+        else 18.5204,
+        longitude=float(filtered_df["flight_lng"].mean())
+        if not filtered_df.empty
+        else 73.8567,
+        zoom=4,
         pitch=30,
     )
-
-    r = pdk.Deck(
-        layers=[line_layer, flight_layer, sensor_layer],
-        initial_view_state=initial_view_state,
+    deck = pdk.Deck(
+        layers=[line_layer, flight_layer, station_layer],
+        initial_view_state=view_state,
         tooltip={
             "text": (
-                "Flight: {callsign} ({icao24})\n"
-                "Sensor: {sensor_id}\n"
+                "Flight: {flight_number} ({icao24})\n"
+                "Station: {station_name} ({station_id})\n"
                 "PM2.5: {pm25} µg/m³\n"
-                "Distance: {distance_meters:.1f}m"
+                "Distance: {distance_to_station_meters} m"
             )
-        },  # type: ignore
+        },
     )
+    st.pydeck_chart(deck, use_container_width=True)
 
-    st.pydeck_chart(r, use_container_width=True)
-
-    # Data Table Preview & Export Tabs
-    st.markdown("### Spatial Join Records")
-    tab1, tab2 = st.tabs(["Interactive Table", "Export Data"])
-
-    with tab1:
+    st.markdown("### Spatial join records")
+    table_tab, export_tab = st.tabs(["Table", "Export"])
+    with table_tab:
         st.dataframe(filtered_df, use_container_width=True)
-
-    with tab2:
-        csv_data = filtered_df.to_csv(index=False).encode("utf-8")
+    with export_tab:
         st.download_button(
-            label="Download Filtered Data as CSV",
-            data=csv_data,
+            label="Download filtered CSV",
+            data=filtered_df.to_csv(index=False).encode("utf-8"),
             file_name="flight_aqi_spatial_join_export.csv",
             mime="text/csv",
         )

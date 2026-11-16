@@ -1,18 +1,17 @@
 import httpx2
 import pytest
 
-from src.ingestion.clients.openaq_client import OpenAQClient
+from flight_aqi_spatial_join.clients.openaq import OpenAQClient
 
 
 @pytest.mark.asyncio
-async def test_openaq_client_success():
+async def test_openaq_client_requests_pm25_around_coordinates():
     mock_response_json = {
-        "meta": {"found": 1},
         "results": [
             {
                 "id": 101,
                 "name": "Test Air Station",
-                "coordinates": {"latitude": 12.9716, "longitude": 77.5946},
+                "coordinates": {"latitude": 18.52, "longitude": 73.85},
                 "sensors": [
                     {
                         "id": 501,
@@ -29,16 +28,21 @@ async def test_openaq_client_success():
 
     def handle_request(request: httpx2.Request) -> httpx2.Response:
         assert request.headers.get("X-API-Key") == "fake-test-key"
+        assert request.url.params["coordinates"] == "18.5204,73.8567"
+        assert request.url.params["parameters_id"] == "2"
+        assert request.url.params["radius"] == "25000"
         return httpx2.Response(200, json=mock_response_json)
 
     transport = httpx2.MockTransport(handle_request)
-    async with httpx2.AsyncClient(
-        transport=transport, base_url="https://test"
-    ) as client:
+    async with httpx2.AsyncClient(transport=transport) as client:
         openaq_client = OpenAQClient(api_key="fake-test-key")
-        sensors = await openaq_client.fetch_pm25_sensors(client=client)
+        sensors = await openaq_client.fetch_pm25_sensors(
+            latitude=18.5204,
+            longitude=73.8567,
+            radius_meters=25000,
+            client=client,
+        )
 
-        assert len(sensors) == 1
-        assert sensors[0].sensor_id == 501
-        assert sensors[0].pm25_value == 35.2
-        assert sensors[0].latitude == 12.9716
+    assert len(sensors) == 1
+    assert sensors[0].sensor_id == 501
+    assert sensors[0].pm25_value == 35.2

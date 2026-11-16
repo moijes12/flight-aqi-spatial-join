@@ -11,7 +11,7 @@ def validate_coordinates(latitude: float, longitude: float) -> None:
 def calculate_distance_meters(
     lat1: float, lon1: float, lat2: float, lon2: float
 ) -> float:
-    """Calculate the great-circle distance between two points on Earth in meters using the Haversine formula."""
+    """Great-circle distance between two points, in meters."""
     validate_coordinates(lat1, lon1)
     validate_coordinates(lat2, lon2)
 
@@ -63,7 +63,7 @@ def batch_find_nearby_sensors(
     sensors: list[dict[str, Any]],
     radius_meters: float,
 ) -> list[dict[str, Any]]:
-    """Perform batch spatial matching for multiple flights (flight_id, lat, lon) against sensors."""
+    """Match flights (flight_id, lat, lon) to sensors inside the radius."""
     results = []
     for flight_id, lat, lon in flights:
         nearby_sensors = find_nearby_sensors((lat, lon), sensors, radius_meters)

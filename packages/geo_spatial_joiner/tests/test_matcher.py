@@ -13,7 +13,7 @@ def test_calculate_distance_zero():
 
 
 def test_calculate_distance_known():
-    # Distance between New York (40.7128, -74.0060) and Washington DC (38.8951, -77.0364)
+    # New York (40.7128, -74.0060) to Washington DC (38.8951, -77.0364).
     # Expected approx 328 km (328,000 meters)
     dist = calculate_distance_meters(40.7128, -74.0060, 38.8951, -77.0364)
     assert 320_000 <= dist <= 335_000

@@ -19,5 +19,10 @@ build/
 .env
 *.terraform.lock.hcl
 
-# OpenSky Credentials
+# Local credentials and scratch exports
 credentials.json
+creds_toml.toml
+gcp-sa-key.json
+raw_telemetry_export.json
+raw_flight_data
+debug_log

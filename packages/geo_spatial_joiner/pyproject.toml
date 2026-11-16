@@ -3,7 +3,7 @@ name = "geo-spatial-joiner"
 version = "0.1.0"
 description = "A lightweight geospatial proximity matching library using Shapely and pure math."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "shapely>=2.0.4",
 ]
