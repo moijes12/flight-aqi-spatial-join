@@ -17,8 +17,8 @@ st.set_page_config(
 )
 st_autorefresh(interval=60_000, key="datarefreshcounter")
 
-st.title("Flight telemetry and air quality")
-st.markdown("Hourly spatial matches between AirLabs flights and OpenAQ PM2.5 sensors.")
+st.title("Pune Airport arrivals and air quality")
+st.markdown("Flights arriving at Pune Airport (PNQ) and nearby OpenAQ PM2.5 stations.")
 
 
 def _service_account_info() -> dict | None:
@@ -45,8 +45,6 @@ def get_bigquery_client() -> bigquery.Client:
 @st.cache_data(ttl=60)
 def load_spatial_data() -> pd.DataFrame:
     """Query recent joined spatial data from the BigQuery view."""
-    # Column names match the live view. It exposes flight_number and flight_lng,
-    # not callsign or flight_lon. Station coordinates are not in the view.
     query = f"""
         SELECT
             timestamp,
@@ -61,8 +59,12 @@ def load_spatial_data() -> pd.DataFrame:
             pm25,
             distance_to_station_meters
         FROM `{VIEW_ID}`
-        WHERE timestamp IS NULL
-           OR timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+        WHERE (
+            timestamp IS NULL
+            OR timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+        )
+          AND flight_lat BETWEEN 18.30 AND 18.90
+          AND flight_lng BETWEEN 73.60 AND 74.20
         ORDER BY timestamp DESC
         LIMIT 1000
     """
@@ -79,7 +81,7 @@ except Exception as exc:  # noqa: BLE001
 if query_error:
     st.error(f"BigQuery query error: {query_error}")
 elif df.empty:
-    st.warning("No spatial join records found in BigQuery for the last 7 days.")
+    st.warning("No Pune Airport arrival matches in BigQuery for the last 7 days.")
 else:
     st.sidebar.header("Filter controls")
     min_dist = int(df["distance_to_station_meters"].min())

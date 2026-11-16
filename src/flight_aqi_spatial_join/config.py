@@ -18,6 +18,7 @@ class Settings:
     bq_table: str
     bq_location: str
     airlabs_bbox: str
+    arr_iata: str
     openaq_latitude: float
     openaq_longitude: float
     openaq_radius_meters: int
@@ -42,11 +43,12 @@ class Settings:
                 f"{project_id}.geo_analytics.fct_flight_air_quality",
             ),
             bq_location=os.getenv("BQ_LOCATION", "us-central1"),
-            # min_lat,min_lng,max_lat,max_lng covering Pune.
-            airlabs_bbox=os.getenv("AIRLABS_BBOX", "18.4,73.7,18.7,74.0"),
-            openaq_latitude=float(os.getenv("OPENAQ_LATITUDE", "18.5204")),
-            openaq_longitude=float(os.getenv("OPENAQ_LONGITUDE", "73.8567")),
-            openaq_radius_meters=int(os.getenv("OPENAQ_RADIUS_METERS", "25000")),
+            # min_lat,min_lng,max_lat,max_lng around Pune Airport (PNQ / VAPO).
+            airlabs_bbox=os.getenv("AIRLABS_BBOX", "18.30,73.60,18.90,74.20"),
+            arr_iata=os.getenv("ARRIVAL_IATA", "PNQ").strip().upper(),
+            openaq_latitude=float(os.getenv("OPENAQ_LATITUDE", "18.5822")),
+            openaq_longitude=float(os.getenv("OPENAQ_LONGITUDE", "73.9197")),
+            openaq_radius_meters=int(os.getenv("OPENAQ_RADIUS_METERS", "40000")),
             openaq_limit=int(os.getenv("OPENAQ_LIMIT", "100")),
             join_radius_meters=float(os.getenv("JOIN_RADIUS_METERS", "15000")),
             max_sensors_per_flight=int(os.getenv("MAX_SENSORS_PER_FLIGHT", "3")),

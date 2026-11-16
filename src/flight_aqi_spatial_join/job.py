@@ -65,7 +65,11 @@ async def run_once(
 
 def main() -> None:
     settings = Settings.from_env()
-    airlabs = AirLabsClient(settings.airlabs_api_key, bbox=settings.airlabs_bbox)
+    airlabs = AirLabsClient(
+        settings.airlabs_api_key,
+        bbox=settings.airlabs_bbox,
+        arr_iata=settings.arr_iata,
+    )
     openaq = OpenAQClient(settings.openaq_api_key)
     publisher = PubSubPublisher(
         settings.project_id, settings.flights_topic, settings.aqi_topic

@@ -21,6 +21,36 @@ def test_flight_telemetry_from_airlabs():
     assert telemetry.vertical_rate == -1.5
 
 
+def test_flight_code_prefers_iata_over_bare_number():
+    item = {
+        "hex": "abc123",
+        "flight_iata": "AI685",
+        "flight_icao": "AIC685",
+        "flight_number": "685",
+        "airline_iata": "AI",
+        "flag": "IN",
+        "lat": 18.58,
+        "lng": 73.92,
+    }
+    telemetry = FlightTelemetry.from_airlabs(item)
+    assert telemetry is not None
+    assert telemetry.callsign == "AI685"
+
+
+def test_flight_code_builds_iata_from_airline_and_number():
+    item = {
+        "hex": "abc123",
+        "airline_iata": "6E",
+        "flight_number": 384,
+        "flag": "IN",
+        "lat": 18.58,
+        "lng": 73.92,
+    }
+    telemetry = FlightTelemetry.from_airlabs(item)
+    assert telemetry is not None
+    assert telemetry.callsign == "6E384"
+
+
 def test_flight_telemetry_missing_coords():
     assert FlightTelemetry.from_airlabs({"hex": "abc123"}) is None
 

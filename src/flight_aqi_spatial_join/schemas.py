@@ -37,16 +37,40 @@ class FlightTelemetry(BaseModel):
 
         altitude = item.get("alt")
         vertical_speed = item.get("v_speed", item.get("vs"))
-        callsign = item.get("flight_icao") or item.get("flight_iata") or item.get("reg")
         return cls(
             icao24=str(icao24),
-            callsign=callsign,
+            callsign=flight_code(item),
             origin_country=str(item.get("flag") or "UNKNOWN"),
             longitude=float(longitude),
             latitude=float(latitude),
             baro_altitude=float(altitude) if altitude is not None else None,
             vertical_rate=float(vertical_speed) if vertical_speed is not None else None,
         )
+
+
+def _clean(value: Any) -> str | None:
+    if isinstance(value, str):
+        cleaned = value.strip()
+        return cleaned or None
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    return None
+
+
+def flight_code(item: dict[str, Any]) -> str | None:
+    """Passenger flight number: IATA code, else airline prefix plus number."""
+    flight_iata = _clean(item.get("flight_iata"))
+    if flight_iata:
+        return flight_iata
+    airline_iata = _clean(item.get("airline_iata"))
+    number = _clean(item.get("flight_number"))
+    if airline_iata and number and number.isdigit():
+        return f"{airline_iata}{number}"
+    return (
+        _clean(item.get("flight_icao"))
+        or _clean(item.get("reg_number"))
+        or _clean(item.get("reg"))
+    )
 
 
 class AirQualitySensor(BaseModel):

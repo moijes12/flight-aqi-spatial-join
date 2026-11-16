@@ -13,11 +13,13 @@ class AirLabsClient:
         self,
         api_key: str,
         bbox: str,
+        arr_iata: str = "PNQ",
         timeout: float = 20.0,
         max_retries: int = 3,
     ) -> None:
         self.api_key = api_key
         self.bbox = bbox
+        self.arr_iata = arr_iata.upper()
         self.timeout = timeout
         self.max_retries = max_retries
         self.base_url = "https://airlabs.co/api/v9/flights"
@@ -29,7 +31,11 @@ class AirLabsClient:
         if client is None:
             client = httpx2.AsyncClient(timeout=self.timeout)
 
-        params = {"api_key": self.api_key, "bbox": self.bbox}
+        params = {
+            "api_key": self.api_key,
+            "bbox": self.bbox,
+            "arr_iata": self.arr_iata,
+        }
         try:
             payload = await self._get_json(client, params)
         finally:
@@ -44,6 +50,9 @@ class AirLabsClient:
         flights: list[FlightTelemetry] = []
         for item in raw_flights:
             if not isinstance(item, dict):
+                continue
+            arrival = item.get("arr_iata")
+            if isinstance(arrival, str) and arrival.strip().upper() != self.arr_iata:
                 continue
             try:
                 flight = FlightTelemetry.from_airlabs(item)
