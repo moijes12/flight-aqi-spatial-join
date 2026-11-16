@@ -93,6 +93,10 @@ sequenceDiagram
 
 pydeck draws a line from each flight to its station, plus a point for each. The page refreshes every 60 seconds. BigQuery credentials come from a Streamlit service-account secret when one is configured, and otherwise from Application Default Credentials.
 
+## Deployment
+
+The dashboard is deployed on Streamlit Community Cloud at [https://flight-aqi-spatial-join.streamlit.app/](https://flight-aqi-spatial-join.streamlit.app/). It runs `src/dashboard/app.py` and reads `geo_analytics.v_flight_aqi_spatial_join`. When a `gcp_service_account` secret is configured in Streamlit, the app uses that credential. Otherwise it uses Application Default Credentials.
+
 ## Local setup
 
 Python 3.12 and [uv](https://docs.astral.sh/uv/) are required.
