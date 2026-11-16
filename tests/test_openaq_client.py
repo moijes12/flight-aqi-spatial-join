@@ -46,3 +46,51 @@ async def test_openaq_client_requests_pm25_around_coordinates():
     assert len(sensors) == 1
     assert sensors[0].sensor_id == 501
     assert sensors[0].pm25_value == 35.2
+
+
+@pytest.mark.asyncio
+async def test_openaq_client_fills_pm25_from_latest_endpoint():
+    def handle_request(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path.endswith("/latest"):
+            return httpx2.Response(
+                200,
+                json={
+                    "results": [
+                        {
+                            "sensorsId": 501,
+                            "value": 41.5,
+                            "datetime": {"utc": "2026-11-16T12:00:00Z"},
+                        }
+                    ]
+                },
+            )
+        return httpx2.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "id": 101,
+                        "name": "Pune Station",
+                        "coordinates": {"latitude": 18.52, "longitude": 73.85},
+                        "sensors": [
+                            {
+                                "id": 501,
+                                "parameter": {"name": "pm25", "units": "µg/m³"},
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+
+    transport = httpx2.MockTransport(handle_request)
+    async with httpx2.AsyncClient(transport=transport) as client:
+        sensors = await OpenAQClient(api_key="fake-test-key").fetch_pm25_sensors(
+            latitude=18.5822,
+            longitude=73.9197,
+            radius_meters=25000,
+            client=client,
+        )
+
+    assert sensors[0].pm25_value == 41.5
+    assert sensors[0].measured_at == "2026-11-16T12:00:00Z"

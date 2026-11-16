@@ -2,7 +2,7 @@
 
 Hourly pipeline that polls AirLabs and OpenAQ, validates the payloads, publishes them to Pub/Sub, loads nearby matches into BigQuery, and maps the result in Streamlit.
 
-The project covers arrivals at Pune Airport (IATA `PNQ`, ICAO `VAPO`). AirLabs is queried with `arr_iata=PNQ` inside `18.30,73.60,18.90,74.20`. OpenAQ is centered on the airport at 18.5822, 73.9197 with a 40 km radius. The stored flight number is the IATA code, such as `AI685`, built from `flight_iata` or from `airline_iata` plus `flight_number`.
+The project covers arrivals at Pune Airport (IATA `PNQ`, ICAO `VAPO`). AirLabs is queried with `arr_iata=PNQ` inside `18.30,73.60,18.90,74.20`. OpenAQ is centered on the airport at 18.5822, 73.9197. Its radius is 25 km, which is the OpenAQ v3 maximum. The spatial join uses the same 25 km radius. The stored flight number is the IATA code, such as `AI685`, built from `flight_iata` or from `airline_iata` plus `flight_number`.
 
 ## High-level architecture
 
@@ -80,7 +80,7 @@ sequenceDiagram
 
 `PubSubPublisher` sends one JSON message per model. Flights go to `flights-stream` with attribute `record_type=flight`. Sensors go to `air-quality-stream` with `record_type=air_quality`.
 
-`join_flights_to_sensors` uses the haversine helper in `packages/geo_spatial_joiner`. Each flight keeps up to `MAX_SENSORS_PER_FLIGHT` sensors inside `JOIN_RADIUS_METERS` (defaults: 3 sensors, 15 km). A match row stores the observation time, `icao24`, callsign, WKT `POINT(lng lat)` for the flight and the sensor, PM2.5, and distance in meters.
+`join_flights_to_sensors` uses the haversine helper in `packages/geo_spatial_joiner`. Each flight keeps up to `MAX_SENSORS_PER_FLIGHT` sensors inside `JOIN_RADIUS_METERS` (defaults: 3 sensors, 25 km). A match row stores the observation time, `icao24`, callsign, WKT `POINT(lng lat)` for the flight and the sensor, PM2.5, and distance in meters.
 
 `BigQuerySink.write` appends those rows with `insert_rows_json` to `geo_analytics.fct_flight_air_quality`. That table is partitioned by `DATE(timestamp)` and clustered by `icao24, sensor_id`.
 

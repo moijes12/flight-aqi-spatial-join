@@ -48,9 +48,10 @@ class Settings:
             arr_iata=os.getenv("ARRIVAL_IATA", "PNQ").strip().upper(),
             openaq_latitude=float(os.getenv("OPENAQ_LATITUDE", "18.5822")),
             openaq_longitude=float(os.getenv("OPENAQ_LONGITUDE", "73.9197")),
-            openaq_radius_meters=int(os.getenv("OPENAQ_RADIUS_METERS", "40000")),
+            # OpenAQ v3 rejects a radius above 25 km.
+            openaq_radius_meters=int(os.getenv("OPENAQ_RADIUS_METERS", "25000")),
             openaq_limit=int(os.getenv("OPENAQ_LIMIT", "100")),
-            join_radius_meters=float(os.getenv("JOIN_RADIUS_METERS", "15000")),
+            join_radius_meters=float(os.getenv("JOIN_RADIUS_METERS", "25000")),
             max_sensors_per_flight=int(os.getenv("MAX_SENSORS_PER_FLIGHT", "3")),
         )
 
