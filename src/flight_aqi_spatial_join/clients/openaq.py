@@ -42,39 +42,38 @@ class OpenAQClient:
         }
         try:
             payload = await self._get_json(client, headers, params)
+            results = payload.get("results") if isinstance(payload, dict) else None
+            if not isinstance(results, list) or not results:
+                logger.warning("OpenAQ returned no locations for the requested area.")
+                return []
+
+            sensors: list[AirQualitySensor] = []
+            for location in results:
+                if not isinstance(location, dict):
+                    continue
+                extracted = AirQualitySensor.from_openaq_location(location)
+                if any(sensor.pm25_value is None for sensor in extracted):
+                    latest = await self._latest_by_sensor(
+                        client, headers, location.get("id")
+                    )
+                    extracted = [
+                        sensor.model_copy(
+                            update={
+                                "pm25_value": latest[sensor.sensor_id][0],
+                                "measured_at": latest[sensor.sensor_id][1]
+                                or sensor.measured_at,
+                            }
+                        )
+                        if sensor.pm25_value is None and sensor.sensor_id in latest
+                        else sensor
+                        for sensor in extracted
+                    ]
+                sensors.extend(extracted)
+            logger.info("Extracted {} PM2.5 sensors from OpenAQ.", len(sensors))
+            return sensors
         finally:
             if owns_client:
                 await client.aclose()
-
-        results = payload.get("results") if isinstance(payload, dict) else None
-        if not isinstance(results, list) or not results:
-            logger.warning("OpenAQ returned no locations for the requested area.")
-            return []
-
-        sensors: list[AirQualitySensor] = []
-        for location in results:
-            if not isinstance(location, dict):
-                continue
-            extracted = AirQualitySensor.from_openaq_location(location)
-            if any(sensor.pm25_value is None for sensor in extracted):
-                latest = await self._latest_by_sensor(
-                    client, headers, location.get("id")
-                )
-                extracted = [
-                    sensor.model_copy(
-                        update={
-                            "pm25_value": latest[sensor.sensor_id][0],
-                            "measured_at": latest[sensor.sensor_id][1]
-                            or sensor.measured_at,
-                        }
-                    )
-                    if sensor.pm25_value is None and sensor.sensor_id in latest
-                    else sensor
-                    for sensor in extracted
-                ]
-            sensors.extend(extracted)
-        logger.info("Extracted {} PM2.5 sensors from OpenAQ.", len(sensors))
-        return sensors
 
     async def _latest_by_sensor(
         self,
