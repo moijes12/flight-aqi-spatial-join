@@ -12,13 +12,17 @@ CREATE TABLE IF NOT EXISTS geo_analytics.fct_flight_air_quality (
     sensor_id STRING NOT NULL,
     sensor_location GEOGRAPHY NOT NULL,
     pm25 FLOAT64,
-    distance_meters FLOAT64 NOT NULL
+    distance_meters FLOAT64 NOT NULL,
+    station_name STRING
 )
 PARTITION BY DATE(timestamp)
 CLUSTER BY icao24, sensor_id
 OPTIONS(
     description="Joined telemetry and air quality metrics evaluated within spatial bounding thresholds."
 );
+
+ALTER TABLE geo_analytics.fct_flight_air_quality
+ADD COLUMN IF NOT EXISTS station_name STRING;
 
 CREATE TABLE IF NOT EXISTS geo_analytics.flight_station_matches (
     timestamp TIMESTAMP,
@@ -64,7 +68,7 @@ SELECT
     CAST(NULL AS FLOAT64) AS altitude_meters,
     CAST(NULL AS FLOAT64) AS speed_knots,
     sensor_id AS station_id,
-    CAST(NULL AS STRING) AS station_name,
+    station_name,
     ST_Y(sensor_location) AS station_lat,
     ST_X(sensor_location) AS station_lng,
     pm25,

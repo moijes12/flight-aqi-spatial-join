@@ -68,7 +68,10 @@ def load_spatial_data() -> pd.DataFrame:
         ORDER BY timestamp DESC
         LIMIT 1000
     """
-    return get_bigquery_client().query(query).to_dataframe()
+    frame = get_bigquery_client().query(query).to_dataframe()
+    if "station_name" in frame.columns:
+        frame["station_name"] = frame["station_name"].fillna("Unknown station")
+    return frame
 
 
 try:

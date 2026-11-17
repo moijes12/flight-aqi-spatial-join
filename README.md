@@ -107,4 +107,4 @@ uv run flight-aqi-job
 uv run streamlit run src/dashboard/app.py
 ```
 
-`build.sh` is only for a local Docker build and one-shot run. It reads the same Secret Manager secrets into the process environment. It does not print those values and it does not deploy Cloud Run or Cloud Scheduler.
+`cloudbuild.yaml` is the production deploy path. A push to `main` builds `gcr.io/flight-aqi-spatial-join/flight-aqi-worker` and updates the Cloud Run job. It does not deploy a Cloud Run service. `build.sh` is only for a local Docker build and one-shot run. It reads the same Secret Manager secrets into the process environment. It does not print those values and it does not deploy Cloud Run or Cloud Scheduler.

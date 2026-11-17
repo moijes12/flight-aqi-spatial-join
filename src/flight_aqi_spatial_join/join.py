@@ -33,6 +33,7 @@ def join_flights_to_sensors(
                     "callsign": flight.callsign,
                     "flight_location": f"POINT({flight.longitude} {flight.latitude})",
                     "sensor_id": str(sensor["sensor_id"]),
+                    "station_name": sensor.get("location_name"),
                     "sensor_location": (
                         f"POINT({sensor['longitude']} {sensor['latitude']})"
                     ),

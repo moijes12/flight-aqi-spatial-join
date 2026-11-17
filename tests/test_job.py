@@ -91,5 +91,6 @@ async def test_run_once_publishes_models_and_writes_join(monkeypatch):
     assert publisher.sensors == [sensor]
     assert sink.rows[0]["icao24"] == "abc123"
     assert sink.rows[0]["sensor_id"] == "7"
+    assert sink.rows[0]["station_name"] == "Pune"
     assert sink.rows[0]["pm25"] == 41.0
     assert sink.rows[0]["flight_location"].startswith("POINT(")
